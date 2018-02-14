@@ -20,6 +20,10 @@ def first(season):
     # Base Line Comparison
     n_games = season_data["HomeWin"].count()
     n_homewins = season_data["HomeWin"].sum()
+
+    print(n_games)
+    print(n_homewins)
+
     win_percentage = float(n_homewins) / float(n_games)
 
     print("Home team wins {0:.2f}% of the time".format(100 * win_percentage))
@@ -55,6 +59,54 @@ def first(season):
         else:
             win_streak[home_team] = 0
             win_streak[visitor_team] += 1
+
+
+    season_data["HomeGamesPlayed"] = 0
+    season_data["VisitorGamesPlayed"] = 0
+    games_played = defaultdict(int)
+
+    for index, row in season_data.iterrows(): # Note this is not efficient
+        home_team = row["Home Team"]
+        visitor_team = row["Visitor Team"]
+        row["HomeGamesPlayed"] = games_played[home_team]
+        row["VisitorGamesPlayed"] = games_played[visitor_team]
+        season_data.ix[index] = row
+        # Set current win
+        games_played[home_team] += 1
+        games_played[visitor_team] += 1
+
+    season_data["HomeDaysLastGame"] = 0
+    season_data["AwayDaysLastGame"] = 0
+
+    date_last_game = defaultdict(int)
+
+    for index, row in season_data.iterrows(): # Note this is not efficient
+        game_date = row['Date']
+        home_team = row["Home Team"]
+        visitor_team = row["Visitor Team"]
+
+        home_last_game = date_last_game[home_team]
+        away_last_game = date_last_game[visitor_team]
+
+        if not isinstance(home_last_game, int):
+            home_last_game = home_last_game.date()
+            diff = game_date.date() - home_last_game
+            row["HomeDaysLastGame"] = diff.days
+        else:
+            row["HomeDaysLastGame"] = 0
+
+        if not isinstance(away_last_game, int):
+            away_last_game = away_last_game.date()
+            diff = game_date.date() - away_last_game
+            row["AwayDaysLastGame"] = diff.days
+        else:
+            row["AwayDaysLastGame"] = 0
+
+        season_data.ix[index] = row
+
+        date_last_game[home_team] = game_date
+        date_last_game[visitor_team] = game_date
+
 
     season_split = season.split("-")
     last_season_part_one = int(season_split[0]) - 1
@@ -104,7 +156,7 @@ def secondary(season, encoding, one_hot_encoder):
         "criterion": ["gini", "entropy"],
         "min_samples_leaf": [1, 2, 4, 6] 
     }
-    x_home_higher = season_data[["HomeLastWin", "VisitorLastWin", "HomeTeamRanksHigher", "HomeTeamWonLast"]].values
+    x_home_higher = season_data[["HomeLastWin", "VisitorLastWin", "HomeTeamRanksHigher", "HomeTeamWonLast", "HomeDaysLastGame"]].values
     X_all = np.hstack([x_home_higher, x_teams])
 
     clf = RandomForestClassifier(random_state=14)
